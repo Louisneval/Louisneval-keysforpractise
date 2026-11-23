@@ -151,7 +151,6 @@ lesson is remembered in your browser.
 
 ```
    [!]  Click inside the page first, or the keys go nowhere.
-   [!]  Russian layout?  You will get a banner: switch to English.
    [!]  The browser may steal some shortcuts.  Press Esc and move on.
    [!]  Needs a physical keyboard.  Phones and tablets need not apply.
    [!]  Terminal and SQL are simulated.  Nothing is really executed.
