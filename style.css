@@ -159,3 +159,4 @@ kbd.mask{border-style:dashed;color:var(--muted)}
 .nano-keys{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px 8px;padding:6px 12px 10px;font-size:.78rem}
 .nano-keys b{background:var(--t-ink);color:var(--t-bg);padding:0 4px;margin-right:4px;border-radius:2px;font-weight:700}
 @media (max-width:620px){.nano-keys{grid-template-columns:repeat(3,minmax(0,1fr))}}
+

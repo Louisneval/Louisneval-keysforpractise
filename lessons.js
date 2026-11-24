@@ -45,15 +45,21 @@ const key = (win, mac, hint, effects = {}) => ({ kind: 'keys', win, mac, hint, .
 const shortcut = (action, win, mac = win) => ({ action, win, mac });
 
 /**
- * The five steps of writing a file with nano:
- * open it, type the content, save, confirm the name, exit.
+ * Writing a file with nano: open it, type the content, then save and exit.
+ *
+ * The save-and-exit part is ONE step here (kind 'nano-save'). The app accepts
+ * both common ways to do it and follows whichever the player starts with:
+ *
+ *   Ctrl+O, Enter, Ctrl+X   write out, confirm the name, exit
+ *   Ctrl+X, Y, Enter        exit, answer yes, confirm the name
+ *
+ * Note: Ctrl+C does not save in nano. At the "Save modified buffer?" question
+ * it cancels, and otherwise it only shows the cursor position.
  */
 const nanoFile = (file, content) => [
   cmd(`Open ${file} in nano`, `nano ${file}`, { openNano: file }),
   typeText(content, 'Type the file content', { nano: true }),
-  key('Ctrl+O', 'Ctrl+O', 'Save the file (Write Out)', { nanoPrompt: true }),
-  key('Enter', 'Enter', 'Confirm the file name', { nanoSave: true }),
-  key('Ctrl+X', 'Ctrl+X', 'Exit nano', { nanoExit: true }),
+  { kind: 'nano-save', hint: 'Save the file and exit nano' },
 ];
 
 /* Steps that appear in many terminal lessons. */

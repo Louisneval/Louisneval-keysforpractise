@@ -83,6 +83,8 @@
     next: 'Next lesson',
     skip: 'Skip',
     showKeys: 'Show keys',
+    or: 'or',
+    nanoAsk: 'Save modified buffer?',
     clickToFocus: 'Click the window and start typing.',
     done: 'Done',
     lowAccuracy: 'Accuracy is below 95%. Type cleanly first, speed will follow.',
@@ -98,7 +100,7 @@
     macNote: 'Mac: VS Code keymap is used.',
     howTerminal:
       'Type the commands like in a real terminal. Enter sends a line, Backspace deletes a character. ' +
-      'Files are written with nano: Ctrl+O saves, Enter confirms, Ctrl+X exits.',
+      'Files are written with nano. Save with Ctrl+O or with Ctrl+X, both work.',
     howSql: 'Type whole queries, with the semicolon. Keywords are uppercase, so watch your Shift key.',
     howDrill:
       'Press the shortcut you are asked for. Layout does not matter. For two-part shortcuts, press the parts one after another.',
@@ -269,6 +271,7 @@
     cwd: '', // current folder shown in the prompt
     files: {}, // files saved with nano
     nano: null, // the nano screen, while it is open
+    nanoPhase: 'start', // where we are inside the nano save step
     base: lesson.base ?? '', // editor text, "|" marks the caret
     output: '',
     toast: '',
@@ -283,12 +286,16 @@
     revealTimer: null,
   });
 
+  /** Steps answered with the keyboard instead of typed text. */
+  const isKeyStep = (item) => item?.kind === 'keys' || item?.kind === 'nano-save';
+
   const enterStep = (session) => {
     session.stepStart = Date.now();
     session.revealed = false;
     clearTimeout(session.revealTimer);
     const item = session.items[session.index];
-    if (item?.kind === 'keys' && !state.showKeys) {
+    session.nanoPhase = 'start';
+    if (isKeyStep(item) && !state.showKeys) {
       session.revealTimer = setTimeout(() => {
         if (state.session === session && !session.done) {
           session.revealed = true;
@@ -353,7 +360,7 @@
       session.history.push({ prompt: promptOf(session), text: item.text, output });
       if (item.cd) session.cwd += (isMac() ? '/' : '\\') + item.cd;
       if (item.openNano) {
-        session.nano = { file: item.openNano, text: '', prompting: false, saved: true, message: '' };
+        session.nano = { file: item.openNano, text: '', asking: false, prompting: false, saved: true, message: '' };
       }
     } else if (kind === 'vs') {
       session.base = insertAtCaret(session.base, item.text);
@@ -365,7 +372,11 @@
   const applyNanoEffects = (session, item) => {
     const { nano } = session;
     if (!nano) return;
-    if (item.nanoPrompt) nano.prompting = true;
+    if (item.nanoAsk) nano.asking = true;
+    if (item.nanoPrompt) {
+      nano.asking = false;
+      nano.prompting = true;
+    }
     if (item.nanoSave) {
       nano.prompting = false;
       nano.saved = true;
@@ -375,6 +386,34 @@
     }
     if (item.nanoExit) session.nano = null;
   };
+
+  /**
+   * The nano save step as a small state machine. From `start` the player may
+   * press Ctrl+O or Ctrl+X, and each path continues on its own:
+   *   Ctrl+O -> name  -> saved -> done      (Ctrl+O, Enter, Ctrl+X)
+   *   Ctrl+X -> ask   -> askName -> done    (Ctrl+X, Y, Enter)
+   */
+  const NANO_SAVE_FLOW = {
+    start: [
+      { keys: 'Ctrl+O', to: 'name', effects: { nanoPrompt: true } },
+      { keys: 'Ctrl+X', to: 'ask', effects: { nanoAsk: true } },
+    ],
+    name: [{ keys: 'Enter', to: 'saved', effects: { nanoSave: true } }],
+    saved: [{ keys: 'Ctrl+X', to: null, effects: { nanoExit: true } }],
+    ask: [{ keys: 'Y', to: 'askName', effects: { nanoPrompt: true } }],
+    askName: [{ keys: 'Enter', to: null, effects: { nanoSave: true, nanoExit: true } }],
+  };
+
+  const NANO_SAVE_HINTS = {
+    start: 'Save the file: press Ctrl+O, or Ctrl+X to leave',
+    name: 'Confirm the file name',
+    saved: 'Exit nano',
+    ask: 'Answer Yes to save the changes',
+    askName: 'Confirm the file name and exit',
+  };
+
+  /** The text shown for the current step. The nano save step changes as it goes. */
+  const hintOf = (session, item) => (item.kind === 'nano-save' ? NANO_SAVE_HINTS[session.nanoPhase] : item.hint);
 
   /** What a shortcut does on screen: editor text, highlights, panels, output. */
   const applyEffects = (session, item) => {
@@ -388,8 +427,9 @@
   };
 
   const completeShortcut = (session, item, skipped) => {
-    if (!skipped) session.times.push({ action: item.hint, seconds: (Date.now() - session.stepStart) / 1000 });
-    applyEffects(session, item);
+    if (!skipped && item.kind === 'keys') session.times.push({ action: item.hint, seconds: (Date.now() - session.stepStart) / 1000 });
+    // Skipping the nano save step still saves the file and closes nano.
+    applyEffects(session, item.kind === 'nano-save' ? { nanoSave: true, nanoExit: true } : item);
     advance(session);
   };
 
@@ -482,6 +522,33 @@
     }
   };
 
+  /** Keys for the nano save step: both Ctrl+O and Ctrl+X work, see NANO_SAVE_FLOW. */
+  const handleNanoSaveKey = (event, session, item) => {
+    if (MODIFIER_CODE.test(event.code)) return;
+    event.preventDefault();
+    if (event.code === 'Escape') {
+      completeShortcut(session, item, true);
+      return;
+    }
+    startClock(session);
+    session.total += 1;
+    const choice = NANO_SAVE_FLOW[session.nanoPhase].find(({ keys }) => matchesCombo(event, parseShortcut(keys, isMac())[0]));
+    if (!choice) {
+      session.errors += 1;
+      session.flash = true;
+      renderStage();
+      return;
+    }
+    session.correct += 1;
+    applyNanoEffects(session, choice.effects);
+    if (choice.to) {
+      session.nanoPhase = choice.to;
+      renderStage();
+    } else {
+      advance(session);
+    }
+  };
+
   window.addEventListener(
     'keydown',
     (event) => {
@@ -490,6 +557,7 @@
       const item = session.items[session.index];
       if (!item) return;
       if (item.kind === 'keys') handleShortcutKey(event, session, item);
+      else if (item.kind === 'nano-save') handleNanoSaveKey(event, session, item);
       else handleTypedKey(event, session, item);
     },
     true,
@@ -619,7 +687,7 @@
   const renderStepBar = (session, item) => `
     <div class="task">
       <span class="step">${TEXT.step} ${session.index + 1} ${TEXT.of} ${session.items.length}</span>
-      <span class="hint">${escapeHtml(item.hint)}</span>
+      <span class="hint">${escapeHtml(hintOf(session, item))}</span>
     </div>`;
 
   const shakeClass = (session) => (session.flash ? ' shake' : '');
@@ -655,8 +723,23 @@
   };
 
   /** Keycaps for a shortcut step inside a terminal lesson (Ctrl+O, Enter, Ctrl+X in nano). */
-  const renderStepKeys = (session, item) =>
-    item.kind === 'keys' ? `<div class="panel keystep${shakeClass(session)}">${renderKeycaps(session, item)}</div>` : '';
+  const renderStepKeys = (session, item) => {
+    if (item.kind === 'keys') return `<div class="panel keystep${shakeClass(session)}">${renderKeycaps(session, item)}</div>`;
+    if (item.kind === 'nano-save') return `<div class="panel keystep${shakeClass(session)}">${renderNanoSaveKeys(session)}</div>`;
+    return '';
+  };
+
+  /** Keycaps for the nano save step. Where two paths are possible, both are shown with "or". */
+  const renderNanoSaveKeys = (session) => {
+    const visible = state.showKeys || session.revealed;
+    const options = NANO_SAVE_FLOW[session.nanoPhase].map(({ keys }) => {
+      const caps = visible
+        ? parseShortcut(keys, isMac())[0].parts.map((part) => `<kbd>${escapeHtml(keyLabel(part))}</kbd>`).join('<b>+</b>')
+        : '<kbd class="mask">?</kbd>';
+      return `<span class="grp">${caps}</span>`;
+    });
+    return `<div class="caps">${options.join(`<em>${TEXT.or}</em>`)}</div>`;
+  };
 
   /* ---- nano ---- */
 
@@ -665,14 +748,20 @@
     ['^X', 'Exit'], ['^R', 'Read File'], ['^\\', 'Replace'], ['^U', 'Paste'], ['^J', 'Justify'], ['^/', 'Go To Line'],
   ];
 
+  /** The three answers nano offers when you exit with unsaved changes. */
+  const NANO_ASK_SHORTCUTS = [['Y', 'Yes'], ['N', 'No'], ['^C', 'Cancel']];
+
   const renderNano = (session, item) => {
     const { nano } = session;
     const body = item.kind === 'type' && item.nano
       ? `${escapeHtml(nano.text)}${renderTyped(item.text, session.typed, null)}`
       : `${escapeHtml(nano.text)}<span class="c cur"> </span>`;
-    const status = nano.prompting ? `File Name to Write: ${nano.file}` : nano.message;
+    let status = nano.message;
+    if (nano.asking) status = TEXT.nanoAsk;
+    else if (nano.prompting) status = `File Name to Write: ${nano.file}`;
     const modified = nano.saved ? '' : 'Modified';
-    const legend = NANO_SHORTCUTS.map(([keys, label]) => `<span><b>${escapeHtml(keys)}</b>${label}</span>`).join('');
+    const legendItems = nano.asking ? NANO_ASK_SHORTCUTS : NANO_SHORTCUTS;
+    const legend = legendItems.map(([keys, label]) => `<span><b>${escapeHtml(keys)}</b>${label}</span>`).join('');
 
     return `${renderStepBar(session, item)}${renderStepKeys(session, item)}
       <div class="nano${shakeClass(session)}">
@@ -845,11 +934,11 @@
     const { lesson } = session;
     const item = session.items[session.index];
 
-    const hasShortcutSteps = lesson.kind === 'drill' || session.items.some((step) => step.kind === 'keys');
+    const hasShortcutSteps = lesson.kind === 'drill' || session.items.some(isKeyStep);
     const keysToggle = hasShortcutSteps
       ? `<label><input type="checkbox" id="show-keys"${state.showKeys ? ' checked' : ''}> ${TEXT.showKeys}</label>`
       : '';
-    const skipButton = !session.done && item?.kind === 'keys' ? `<button type="button" data-action="skip">${TEXT.skip}</button>` : '';
+    const skipButton = !session.done && isKeyStep(item) ? `<button type="button" data-action="skip">${TEXT.skip}</button>` : '';
     const focusNote = !session.startedAt && !session.done ? `<div class="focus-note">${TEXT.clickToFocus}</div>` : '';
 
     $('#stage').innerHTML = `
@@ -896,7 +985,7 @@
     } else if (action === 'skip') {
       const { session } = state;
       const item = session.items[session.index];
-      if (item?.kind === 'keys') completeShortcut(session, item, true);
+      if (isKeyStep(item)) completeShortcut(session, item, true);
     }
     document.activeElement?.blur?.(); // keep Space and Enter from clicking the button again
   });

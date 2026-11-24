@@ -47,8 +47,11 @@ C:\dev> cd hello
 C:\dev\hello> nano hello.py
 ```
 
-Then a nano screen opens right inside the page: type the code, press
-`Ctrl+O` to save, `Enter` to confirm the name, `Ctrl+X` to exit.
+Then a nano screen opens right inside the page: type the code and save it.
+Both common ways work, no setting needed. The page follows whichever you start with:
+
+- `Ctrl+O`, `Enter`, `Ctrl+X` (write out, confirm the name, exit)
+- `Ctrl+X`, `Y`, `Enter` (exit, answer yes, confirm the name)
 
 ```
 C:\dev\hello> cat hello.py
