@@ -15,7 +15,7 @@ terminal commands, SQL, editor shortcuts, and the weird symbols that live in rea
         |---------------------------------------------------------|
         |  Lessons        |  Step 3 of 6  Write the code to a file|
         |  > Python       |  .--------------------------------.   |
-        |    JavaScript   |  | C:\dev\hello> echo print("He   |   |
+        |    JavaScript   |  | C:\dev\hello> nano hello.py    |   |
         |    C            |  |                                |   |
         |    Rust         |  '--------------------------------'   |
         |    Git          |  TIME 0:12  WPM 41  ACC 97%  ERR 1    |
@@ -44,14 +44,23 @@ You type the commands that really make "Hello, World" happen:
 ```
 C:\dev> mkdir hello
 C:\dev> cd hello
-C:\dev\hello> echo print("Hello, World!") > hello.py
+C:\dev\hello> nano hello.py
+```
+
+Then a nano screen opens right inside the page: type the code, press
+`Ctrl+O` to save, `Enter` to confirm the name, `Ctrl+X` to exit.
+
+```
+C:\dev\hello> cat hello.py
+print("Hello, World!")
 C:\dev\hello> python hello.py
 Hello, World!
 ```
 
 Python, JavaScript, C, C++, Java, Go, Rust, C#, plus Git, venv + pip and npm.
 On Mac the prompt becomes `~/dev %` and the commands switch to zsh style
-(`python3`, `cat`, `./hello`, single quotes around `echo`).
+(`python3`, `cat`, `./hello`). nano is built into macOS; on Windows it comes
+with Git Bash and WSL.
 
 ### 2. SQL
 
@@ -151,6 +160,7 @@ lesson is remembered in your browser.
 
 ```
    [!]  Click inside the page first, or the keys go nowhere.
+   [!]  Wrong keyboard layout?  A banner will ask you to switch to English.
    [!]  The browser may steal some shortcuts.  Press Esc and move on.
    [!]  Needs a physical keyboard.  Phones and tablets need not apply.
    [!]  Terminal and SQL are simulated.  Nothing is really executed.
