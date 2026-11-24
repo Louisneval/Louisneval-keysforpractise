@@ -1,0 +1,88 @@
+/*
+ * Keys and Code: intro screen styles.
+ * Author: LouisNeval
+ */
+
+/* The page blurs in from behind the intro (the class is removed by intro.js). */
+.app {
+  transition: filter 0.8s ease, opacity 0.8s ease;
+}
+
+body.intro-on .app {
+  filter: blur(14px);
+  opacity: 0.55;
+}
+
+.intro {
+  --fs: 24px;
+  --lh: calc(var(--fs) * 1.75);
+  --shift: 1;
+  --gx: 0px;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow: hidden;
+  background: #03050d;
+  cursor: pointer;
+}
+
+.intro canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Terminal lines: the block is centred on three lines and slides up as lines appear. */
+.intro-term {
+  position: absolute;
+  left: 11.5vw;
+  top: calc(50vh - var(--lh) * 1.5);
+  font: 500 var(--fs) / var(--lh) 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  color: #cdd8ff;
+  text-shadow: 0 0 14px rgba(110, 150, 255, 0.55);
+  white-space: pre;
+  transform: translate(var(--gx), calc(var(--lh) * var(--shift)));
+  transition: transform 0.25s ease;
+}
+
+.intro-line {
+  height: var(--lh);
+}
+
+.intro-line .pr {
+  color: #8aa4ff;
+}
+
+.intro-line .tick {
+  color: #a9bcff;
+}
+
+.intro-line .caret {
+  display: inline-block;
+  width: 0.55em;
+  height: 1em;
+  margin: 0 0.15em;
+  vertical-align: -0.12em;
+  background: #9db3ff;
+  box-shadow: 0 0 12px rgba(130, 160, 255, 0.8);
+}
+
+.intro-line .caret.thin {
+  width: 0.09em;
+  height: 1.05em;
+  margin: 0 0.4em;
+  background: #dfe7ff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro {
+    display: none;
+  }
+
+  body.intro-on .app {
+    filter: none;
+    opacity: 1;
+  }
+}
